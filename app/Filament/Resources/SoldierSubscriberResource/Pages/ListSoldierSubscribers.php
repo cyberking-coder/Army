@@ -2,12 +2,14 @@
 
 namespace App\Filament\Resources\SoldierSubscriberResource\Pages;
 
+use App\Exports\SoldierSubscribersExport;
 use App\Filament\Resources\SoldierSubscriberResource;
 use App\Models\SoldierSubscriber;
 use Filament\Actions;
 use Filament\Resources\Components\Tab;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Builder;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ListSoldierSubscribers extends ListRecords
 {
@@ -15,7 +17,18 @@ class ListSoldierSubscribers extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [Actions\CreateAction::make()];
+        return [
+            Actions\Action::make('download_subscribed')->label('Download subscribed')
+                ->icon('heroicon-o-arrow-down-tray')->color('success')
+                ->action(fn () => Excel::download(new SoldierSubscribersExport('subscribed'), 'soldier-subscribed-'.now()->format('Ymd-His').'.xlsx')),
+            Actions\Action::make('download_unverified')->label('Download unverified')
+                ->icon('heroicon-o-arrow-down-tray')->color('warning')
+                ->action(fn () => Excel::download(new SoldierSubscribersExport('unverified'), 'soldier-unverified-'.now()->format('Ymd-His').'.xlsx')),
+            Actions\Action::make('download_unsubscribed')->label('Download unsubscribed')
+                ->icon('heroicon-o-arrow-down-tray')->color('danger')
+                ->action(fn () => Excel::download(new SoldierSubscribersExport('unsubscribed'), 'soldier-unsubscribed-'.now()->format('Ymd-His').'.xlsx')),
+            Actions\CreateAction::make(),
+        ];
     }
 
     public function getTabs(): array

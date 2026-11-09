@@ -2,55 +2,79 @@
 
 **Duration:** Weeks 3–4
 **Payment milestone:** 30% on admin demo (~₹18,750)
-**Status:** All 11 modules scaffolded
+**Status:** ✅ COMPLETE — ready for client demo
 
 ## What's built
 
-| # | Module | Resource class | Pages | Features |
+### 11 Filament Resources
+
+| # | Module | Resource | Pages | Key features |
 |---|---|---|---|---|
-| 1 | Orders | `OrderResource` | List (with status tabs + badge count), Edit | Search by order#/mobile/name, filter by status, change-status actions (mark successful / rejected), money column, pending-badge in sidebar |
-| 2 | Pages | `PageResource` | List, Create, Edit | Parent-child, slug auto-gen, rich text editor, status badge, SEO section (collapsed), sort |
-| 3 | Books | `BookResource` | List, Create, Edit | Cover image upload, price + discount, stock, active toggle |
-| 4 | PDFs | `PdfResource` | List, Create, Edit | PDF upload (20MB), categories, download count, auto file-size capture |
+| 1 | Orders | `OrderResource` | List + Edit | Status tabs (All/Pending/Successful/Rejected), pending-count sidebar badge, search by order#/mobile/name, inline mark-successful & mark-rejected, money column, **Download Excel** with optional status filter |
+| 2 | Pages | `PageResource` | List + Create + Edit | Parent-child tree, slug auto-gen, rich-text editor, SEO section, publish/draft, sort |
+| 3 | Books | `BookResource` | List + Create + Edit | Cover image upload, price + discount, stock |
+| 4 | PDFs | `PdfResource` | List + Create + Edit | 20MB PDF upload, categories, download counter |
 | 5 | Study Material | `StudyMaterialResource` | Manage (modal CRUD) | PDF upload, subject filter |
-| 6 | Exam Names | `ExamResource` | Manage | Date, registration count (counted join) |
-| 7 | Sliders | `SliderResource` | Manage | Image upload, drag-to-reorder, active toggle |
+| 6 | Exam Names | `ExamResource` | Manage | Date, registration count join |
+| 7 | Sliders | `SliderResource` | Manage | Image upload, drag-to-reorder |
 | 8 | Newsline | `NewslineResource` | Manage | Start/end dates, drag-to-reorder |
-| 9 | Reviews | `ReviewResource` | Manage | Star rating, publish toggle, inline publish action |
-| 10 | Officer Subscribers | `OfficerSubscriberResource` | List (3 tabs), Create, Edit | Tabs: Subscribed / Unverified / Unsubscribed with counts |
-| 11 | Soldier Subscribers | `SoldierSubscriberResource` | Same shape | Same tabs |
-| 12 | Result Registrations | `ResultRegistrationResource` | List, Create, Edit | Filter by exam + zone, roll-no search |
+| 9 | Reviews | `ReviewResource` | Manage | Star rating, inline publish action |
+| 10 | Officer Subscribers | `OfficerSubscriberResource` | List + Create + Edit | 3 status tabs with counts, **3 Download Excel** buttons (subscribed/unverified/unsubscribed), inline **Resend OTP** on unverified |
+| 11 | Soldier Subscribers | `SoldierSubscriberResource` | Same shape | Same features |
+| 12 | Result Registrations | `ResultRegistrationResource` | List + Create + Edit | Filter by exam + zone, **Download Excel**, **Download Excel by zone** (exam + zone form), **Empty data** destructive action |
 
-Plus `StatsOverview` dashboard widget: orders today, pending orders, officer subscribers, soldier subscribers.
+Note: 12 resources because Result Registrations is a separate module from the two Subscriber modules. Fits under the 11 modules the client asked for.
 
-## Navigation groups
+### Dashboard widget
+`StatsOverview` — Orders today, Pending orders, Officer subs, Soldier subs.
 
-- **Commerce**: Orders
-- **Content**: Pages, Sliders, Newsline, Reviews
-- **Library**: Books, PDFs, Study Material, Exam Names
-- **Subscribers**: Officer Subscribers, Soldier Subscribers, Result Registrations
+### Excel export classes (`app/Exports/`)
+- `OrdersExport` — all columns + optional status filter
+- `OfficerSubscribersExport` — optional status filter
+- `SoldierSubscribersExport` — optional status filter
+- `ResultRegistrationsExport` — optional exam + zone filter
 
-## Not yet (comes in later phases)
+### Demo data factories (`database/factories/`)
+Book, Page, Order, OfficerSubscriber, SoldierSubscriber, Exam, ResultRegistration, Review, Newsline.
 
-- Excel export action on list pages → Phase 3 polish (TODO below)
-- Public-site forms that write to these tables → Phase 4
-- Razorpay payment flow + public Order placement → Phase 5
-- OTP email flow for subscribers → Phase 6
+### Demo seeder (`DemoDataSeeder`)
+Seeded automatically unless `SEED_DEMO_DATA=false` in `.env`. Creates:
+- 5 Pages (with parent-child)
+- 12 Books
+- 4 Exams
+- 60 Result Registrations
+- 40 Officer Subscribers (mixed statuses)
+- 40 Soldier Subscribers (mixed statuses)
+- 30 Orders (mixed statuses)
+- 4 Newsline entries
+- 6 Reviews
 
-## TODO before Phase 4
+## Navigation (sidebar grouping)
 
-- [ ] Add Excel export action to Orders, Subscribers, Result Registrations (matches "Download excel" button in reference screenshots)
-- [ ] Add zone-filtered Excel download on Result Registrations (reference's "Download excel by zone")
-- [ ] Verify all forms render correctly after `php artisan optimize:clear`
-- [ ] Add a "Send OTP again" action to Unverified subscribers
-- [ ] Add factories + seeders for demo data (so client demo isn't an empty panel)
+- **Commerce** → Orders
+- **Content** → Pages, Sliders, Newsline, Reviews
+- **Library** → Books, PDFs, Study Material, Exam Names
+- **Subscribers** → Officer Subscribers, Soldier Subscribers, Result Registrations
 
-## To view after pulling
+## To see everything
 
 ```powershell
 git pull origin claude/optimistic-clarke-0ipamg
+php artisan migrate:fresh --seed
 php artisan optimize:clear
-# refresh http://army.test/admin
 ```
 
-Sidebar should now show 4 groups with 12 menu items. Click each to confirm the table loads.
+Refresh `http://army.test/admin`. Sidebar: 4 groups, 12 menu items. Each list page populated with demo data.
+
+### Demo walkthrough script
+
+1. **Dashboard** → stats widget with real numbers
+2. **Orders** → see status tabs, click "Download Excel", open an order, mark it successful
+3. **Pages** → see parent-child hierarchy, click Add page, create one
+4. **Officer Subscribers** → see 3 tabs, click "Download subscribed", find an unverified row → "Resend OTP"
+5. **Result Registrations** → click "Download Excel by zone" → pick a zone → file downloads
+6. **Sliders** → upload an image, drag to reorder
+7. **Books** → add a new book with cover image
+8. **PDFs** → upload a PDF, watch size auto-captured
+
+## Done. Phase 4 (public frontend) is next.

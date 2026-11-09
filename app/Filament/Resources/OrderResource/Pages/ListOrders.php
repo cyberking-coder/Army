@@ -2,15 +2,34 @@
 
 namespace App\Filament\Resources\OrderResource\Pages;
 
+use App\Exports\OrdersExport;
 use App\Filament\Resources\OrderResource;
 use App\Models\Order;
+use Filament\Actions;
 use Filament\Resources\Components\Tab;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Builder;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ListOrders extends ListRecords
 {
     protected static string $resource = OrderResource::class;
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Actions\Action::make('download_excel')
+                ->label('Download Excel')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->form([
+                    \Filament\Forms\Components\Select::make('status')
+                        ->options(['' => 'All', 'pending' => 'Pending', 'successful' => 'Successful', 'rejected' => 'Rejected']),
+                ])
+                ->action(fn (array $data) =>
+                    Excel::download(new OrdersExport($data['status'] ?: null), 'orders-'.now()->format('Ymd-His').'.xlsx')
+                ),
+        ];
+    }
 
     public function getTabs(): array
     {

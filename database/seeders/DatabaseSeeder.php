@@ -34,5 +34,9 @@ class DatabaseSeeder extends Seeder
         }
 
         $this->command->info('Seeded admin: '.env('ADMIN_EMAIL'));
+
+        if (env('SEED_DEMO_DATA', true)) {
+            $this->call(DemoDataSeeder::class);
+        }
     }
 }
