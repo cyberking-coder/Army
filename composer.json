@@ -5,9 +5,9 @@
     "keywords": ["laravel", "filament", "territorial-army"],
     "license": "proprietary",
     "require": {
-        "php": "^8.3",
-        "filament/filament": "^3.2",
-        "laravel/framework": "^11.0",
+        "php": "^8.3 <8.5",
+        "filament/filament": "^3.3",
+        "laravel/framework": "^12.0",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.9",
         "league/flysystem-aws-s3-v3": "^3.0",
