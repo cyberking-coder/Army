@@ -1,21 +1,37 @@
-# Phase 5 — Payments & Order Flow
+# Phase 5 — Payments & Order Flow (CCAvenue)
 
 **Duration:** Week 7
-**Status:** ✅ COMPLETE — end-to-end flow live, with a dev fallback when Razorpay isn't configured
+**Status:** ✅ COMPLETE — end-to-end flow live, with a dev fallback when CCAvenue isn't configured
+
+## Payment gateway: **CCAvenue**
+
+CCAvenue uses a **form-POST redirect** flow (not a JS popup):
+
+1. Customer completes checkout form on our site
+2. We build a request string and encrypt it with AES-128-CBC using the merchant's working key
+3. Form auto-submits to CCAvenue's hosted payment page
+4. User pays on CCAvenue
+5. CCAvenue redirects back to our `redirect_url` with an encrypted `encResp` field
+6. We decrypt, read `order_status`, mark the order
 
 ## What's built
 
 ### Services
-- **`App\Services\Cart`** — session-backed shopping cart (`add`, `update`, `remove`, `clear`, `items`, `count`, `subtotal`, `isEmpty`). One cart per browser session.
-- **`App\Services\RazorpayService`** — thin wrapper around the official `razorpay/razorpay` SDK:
-  - `createOrder(Order)` — creates a Razorpay order, stores `razorpay_order_id` on the local Order
-  - `verifyPayment(order_id, payment_id, signature)` — validates the HMAC signature returned from checkout
-  - `verifyWebhook(payload, signature)` — validates webhook events
+- **`App\Services\Cart`** — session-backed shopping cart (unchanged)
+- **`App\Services\CCAvenueService`** — AES-128-CBC encrypt/decrypt + CCAvenue URL builder
+  - Uses the fixed IV from CCAvenue's integration kit
+  - Encryption key: `hex2bin(md5(working_key))`
+  - `buildEncryptedRequest(array)` → hex-encoded ciphertext for `encRequest`
+  - `decodeResponse(string encResp)` → parsed response array
 
 ### Controllers
-- **`CartController`** — `/cart` index, add, update, remove
-- **`CheckoutController`** — `/checkout` form, place order (writes `orders` + `order_items`), show payment page, verify payment, dev-mode mark-paid
-- **`WebhookController`** — `POST /webhooks/razorpay` for async events (`payment.captured`, `payment.failed`). CSRF excluded.
+- **`CartController`** — add/update/remove/index (unchanged)
+- **`CheckoutController`**:
+  - `show()` — render shipping form
+  - `place()` — validate, write `orders` + `order_items` in a transaction, build encrypted CCAvenue request, show the auto-submitting redirect page
+  - `ccavenueReturn()` — decrypts `encResp`, marks the order Successful/Rejected based on `order_status`
+  - `devMarkPaid()` — dev fallback when CCAvenue env vars are empty
+  - `orderShow()` — confirmation page
 
 ### Routes (new)
 
@@ -27,86 +43,71 @@ DELETE /cart/remove/{book}
 
 GET    /checkout
 POST   /checkout                      → place order, show pay page
-POST   /checkout/{order}/verify       → confirm payment, mark successful
-POST   /checkout/{order}/dev-paid     → dev fallback (only when RAZORPAY_KEY empty)
+POST   /checkout/ccavenue/return      → CCAvenue redirects here (CSRF-exempt)
+POST   /checkout/{order}/dev-paid     → dev fallback
 GET    /order/{order}                 → confirmation page
-
-POST   /webhooks/razorpay             → async events (no CSRF)
 ```
 
 ### Views
-- `public/cart/index.blade.php` — line items, qty edit, remove, subtotal, Proceed to Checkout
-- `public/checkout/index.blade.php` — shipping form + sticky order summary sidebar
-- `public/checkout/pay.blade.php` — Razorpay JS SDK button if keys set, else "Simulate Payment" dev button
-- `public/order/show.blade.php` — green/amber/red confirmation card based on status
+- `public/cart/index.blade.php`
+- `public/checkout/index.blade.php` — shipping form
+- `public/checkout/pay.blade.php` — auto-submitting form to CCAvenue OR "Simulate Payment" dev button
+- `public/order/show.blade.php`
 
-### Header integration
-Top nav shows a cart icon with a saffron badge showing current cart count (reads from session).
+### Header
+Cart icon with saffron count badge (unchanged).
 
-### Book detail page
-Buy button replaced with **Add to Cart** form (qty input + button). Shows stock count.
+## Dev workflow (no CCAvenue keys yet)
 
-## Dev workflow (no Razorpay keys yet)
+1. Add a book to cart → `/cart` → Proceed to Checkout
+2. Fill shipping form → **Pay with Razorpay** button → actually goes to CCAvenue intro page
+3. Yellow banner: "Dev mode — CCAvenue not set. Click to simulate."
+4. Simulate → order marked Successful → green confirmation page
+5. Admin → Orders → Successful tab → see the new order
 
-1. Open any book → Add to Cart → `/cart` → Proceed to Checkout
-2. Fill shipping form → click "Pay with Razorpay"
-3. Yellow banner appears: "Dev mode — Razorpay not set. Click to simulate."
-4. Click simulate → order marked successful → `/order/{id}` shows green confirmation
-
-The admin Orders list immediately shows the new order under the **Successful** tab.
-
-## When Razorpay keys are added
+## Going live with CCAvenue
 
 Fill in `.env`:
 ```
-RAZORPAY_KEY=rzp_test_xxxxxxxxxxxxxxxx
-RAZORPAY_SECRET=xxxxxxxxxxxxxxxxxxxxxxx
-RAZORPAY_WEBHOOK_SECRET=xxxxxxxxxxxxxxxx
+CCAVENUE_MERCHANT_ID=1234567
+CCAVENUE_ACCESS_CODE=AVXXXXXXXXXXXXXXXXXX
+CCAVENUE_WORKING_KEY=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+CCAVENUE_BASE_URL=https://test.ccavenue.com
 ```
 
-Then `.\dev.ps1 clear` and the real Razorpay checkout popup appears at `/checkout` → pay → verify → done.
+Then `.\dev.ps1 clear` and real CCAvenue takes over.
 
-### Razorpay webhook setup (production)
-In Razorpay dashboard → Settings → Webhooks → Add:
-- URL: `https://yoursite.com/webhooks/razorpay`
-- Events: `payment.captured`, `payment.failed`
-- Secret: copy into `RAZORPAY_WEBHOOK_SECRET`
+### Getting credentials from CCAvenue
+1. Sign up at <https://world.ccavenue.com> and complete KYC
+2. CCAvenue dashboard → Settings → **API Keys**
+3. Copy: **Merchant ID**, **Access Code**, **Working Key**
+4. Add our return URL `https://yoursite.com/checkout/ccavenue/return` to your merchant profile's allowed redirect URLs
+
+### Test vs Live
+- `CCAVENUE_BASE_URL=https://test.ccavenue.com` for sandbox
+- `CCAVENUE_BASE_URL=https://secure.ccavenue.com` for production
+
+Test credentials and test card numbers are issued separately from CCAvenue during onboarding.
 
 ## Order lifecycle
 ```
-Cart → Checkout → place() → Order created (pending)
-                          ↓
-                  Razorpay order created, pay page shown
-                          ↓
-            User completes payment on Razorpay popup
-                          ↓
-              handler posts to /checkout/{order}/verify
-                          ↓
-               Signature verified → markSuccessful()
-                          ↓
-               Cart cleared → redirect to /order/{id}
-                          ↓
-                    Green confirmation page
+Cart → Checkout form → place() → Order created (pending)
+                              ↓
+                encRequest built and form posted to CCAvenue
+                              ↓
+                User pays on CCAvenue hosted page
+                              ↓
+          CCAvenue POSTs encResp back to /checkout/ccavenue/return
+                              ↓
+          Decrypt → check order_status
+            ├─ Success → markSuccessful(tracking_id) → confirmation page
+            └─ Failure/Aborted → markRejected(reason) → status page
 ```
 
-Async safety net: if the browser dies between payment and verify, the webhook (`payment.captured`) still flips the order to successful.
+## Why no webhook?
+CCAvenue's integration is synchronous — the redirect back to `redirect_url` IS the notification. There's no separate webhook/server-to-server callback like Razorpay's. The one safety net CCAvenue offers is the dashboard Status Inquiry API (not implemented here; add if orders ever get stuck).
 
-## Known limits (polish in Phase 8)
-- No email confirmation yet → wired in Phase 6
-- No stock decrement on successful order (will need a `$book->decrement('stock')` hook)
-- No partial refunds flow (admin can mark Rejected for manual refund)
-- No GST line (project scope omits tax handling)
-
-## To try
-
-```powershell
-.\dev.ps1 pull
-.\dev.ps1 clear
-```
-
-Then:
-1. `http://army.test/books` → pick one → **Add to Cart**
-2. Cart icon in header shows a `1` badge
-3. Click cart icon → `/cart` → **Proceed to Checkout**
-4. Fill form → **Pay with Razorpay** → **Simulate Payment** → green confirmation
-5. Open `/admin/orders` → Successful tab → see the new row
+## Known limits
+- No stock decrement on successful order (one line in markSuccessful if desired)
+- No email confirmation yet → Phase 6
+- No partial refunds flow (admin marks Rejected for manual refund via CCAvenue dashboard)

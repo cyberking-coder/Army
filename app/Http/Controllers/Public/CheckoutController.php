@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Services\Cart;
-use App\Services\RazorpayService;
+use App\Services\CCAvenueService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -27,7 +27,7 @@ class CheckoutController extends Controller
         ]);
     }
 
-    public function place(Request $request, RazorpayService $razorpay)
+    public function place(Request $request, CCAvenueService $ccavenue)
     {
         if ($this->cart->isEmpty()) {
             return redirect()->route('cart.index');
@@ -68,65 +68,103 @@ class CheckoutController extends Controller
             return $order;
         });
 
-        // Create Razorpay order (skip gracefully if keys not configured in dev)
-        $razorpayOrder = null;
-        if (config('services.razorpay.key') && config('services.razorpay.secret')) {
-            try {
-                $razorpayOrder = $razorpay->createOrder($order);
-            } catch (\Throwable $e) {
-                Log::error('Razorpay order create failed', ['error' => $e->getMessage()]);
-            }
+        // If CCAvenue isn't configured, render a dev-only "Simulate Payment" page.
+        if (! $ccavenue->isConfigured()) {
+            return view('public.checkout.pay', [
+                'order' => $order,
+                'encRequest' => null,
+                'accessCode' => null,
+                'actionUrl'  => null,
+            ]);
         }
+
+        $fields = [
+            'merchant_id'      => $ccavenue->merchantId(),
+            'order_id'         => $order->order_number,
+            'currency'         => 'INR',
+            'amount'           => number_format($order->final_cost, 2, '.', ''),
+            'redirect_url'     => route('checkout.ccavenue.return'),
+            'cancel_url'       => route('checkout.ccavenue.return'),
+            'language'         => 'EN',
+            'billing_name'     => $order->full_name,
+            'billing_address'  => $order->shipping_address,
+            'billing_city'     => $order->city,
+            'billing_state'    => $order->state,
+            'billing_zip'      => $order->pincode,
+            'billing_country'  => 'India',
+            'billing_tel'      => $order->mobile,
+            'billing_email'    => $order->email,
+            'delivery_name'    => $order->full_name,
+            'delivery_address' => $order->shipping_address,
+            'delivery_city'    => $order->city,
+            'delivery_state'   => $order->state,
+            'delivery_zip'     => $order->pincode,
+            'delivery_country' => 'India',
+            'delivery_tel'     => $order->mobile,
+            'merchant_param1'  => (string) $order->id,
+        ];
 
         return view('public.checkout.pay', [
-            'order'         => $order,
-            'razorpayOrder' => $razorpayOrder,
-            'razorpayKey'   => config('services.razorpay.key'),
+            'order'      => $order,
+            'encRequest' => $ccavenue->buildEncryptedRequest($fields),
+            'accessCode' => $ccavenue->accessCode(),
+            'actionUrl'  => $ccavenue->transactionUrl(),
         ]);
     }
 
-    public function verify(Request $request, Order $order, RazorpayService $razorpay)
+    /**
+     * CCAvenue POSTs here after payment. The field `encResp` holds the
+     * encrypted response; decrypt and read `order_status`.
+     */
+    public function ccavenueReturn(Request $request, CCAvenueService $ccavenue)
     {
-        $data = $request->validate([
-            'razorpay_payment_id' => 'required|string',
-            'razorpay_order_id'   => 'required|string',
-            'razorpay_signature'  => 'required|string',
-        ]);
-
-        $valid = $razorpay->verifyPayment(
-            $data['razorpay_order_id'],
-            $data['razorpay_payment_id'],
-            $data['razorpay_signature'],
-        );
-
-        if (! $valid) {
-            $order->markRejected('Signature verification failed');
-            return redirect()->route('order.show', $order)->withErrors(['payment' => 'Payment verification failed.']);
+        $encResp = $request->input('encResp');
+        if (! $encResp) {
+            return redirect()->route('home')->withErrors(['payment' => 'Missing payment response.']);
         }
 
-        $order->markSuccessful($data['razorpay_payment_id']);
-        $this->cart->clear();
+        $parsed = $ccavenue->decodeResponse($encResp);
+        Log::info('CCAvenue response', $parsed);
 
-        return redirect()->route('order.show', $order)->with('success', 'Payment successful!');
+        $order = Order::where('order_number', $parsed['order_id'] ?? null)->first();
+        if (! $order) {
+            return redirect()->route('home')->withErrors(['payment' => 'Order not found.']);
+        }
+
+        $status     = $parsed['order_status'] ?? 'Failure';
+        $trackingId = $parsed['tracking_id'] ?? null;
+
+        if ($status === 'Success') {
+            $order->markSuccessful($trackingId);
+            $this->cart->clear();
+            return redirect()->route('order.show', $order)->with('success', 'Payment successful!');
+        }
+
+        $reason = $parsed['failure_message'] ?? $parsed['status_message'] ?? $status;
+        $order->markRejected('CCAvenue: '.$reason);
+
+        return redirect()->route('order.show', $order)->withErrors(['payment' => "Payment {$status}."]);
     }
 
-    public function show(Order $order)
+    public function show_(Order $order) { return $this->orderShow($order); }
+
+    public function orderShow(Order $order)
     {
         return view('public.order.show', compact('order'));
     }
 
     /**
-     * Dev-only: simulate a successful payment without hitting Razorpay.
-     * Enabled when RAZORPAY_KEY is empty (local development).
+     * Dev-only: simulate a successful payment without hitting CCAvenue.
+     * Only reachable when CCAvenue env vars are not set.
      */
-    public function devMarkPaid(Order $order)
+    public function devMarkPaid(Order $order, CCAvenueService $ccavenue)
     {
-        abort_if(config('services.razorpay.key'), 404);
+        abort_if($ccavenue->isConfigured(), 404);
 
         $order->markSuccessful('DEV-'.time());
         $this->cart->clear();
 
         return redirect()->route('order.show', $order)
-            ->with('success', 'Dev mode: order marked paid without Razorpay.');
+            ->with('success', 'Dev mode: order marked paid without CCAvenue.');
     }
 }

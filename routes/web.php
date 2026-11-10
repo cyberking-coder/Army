@@ -9,7 +9,6 @@ use App\Http\Controllers\Public\PageController;
 use App\Http\Controllers\Public\PdfController;
 use App\Http\Controllers\Public\StudyMaterialController;
 use App\Http\Controllers\Public\SubscriptionController;
-use App\Http\Controllers\Public\WebhookController;
 use App\Models\Newsline;
 use App\Models\Review;
 use Illuminate\Support\Facades\Route;
@@ -34,16 +33,17 @@ Route::post('/cart/add/{book:slug}', [CartController::class, 'add'])->name('cart
 Route::patch('/cart/update/{book}', [CartController::class, 'update'])->name('cart.update');
 Route::delete('/cart/remove/{book}', [CartController::class, 'remove'])->name('cart.remove');
 
-// Checkout + Razorpay
+// Checkout + CCAvenue
 Route::get('/checkout', [CheckoutController::class, 'show'])->name('checkout.show');
 Route::post('/checkout', [CheckoutController::class, 'place'])->name('checkout.place');
-Route::post('/checkout/{order}/verify', [CheckoutController::class, 'verify'])->name('checkout.verify');
-Route::post('/checkout/{order}/dev-paid', [CheckoutController::class, 'devMarkPaid'])->name('checkout.dev_paid');
-Route::get('/order/{order}', [CheckoutController::class, 'show'])->name('order.show');
 
-// Razorpay webhook (no CSRF)
-Route::post('/webhooks/razorpay', [WebhookController::class, 'razorpay'])
-    ->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class);
+// CCAvenue POSTs here after payment with encResp (must bypass CSRF — comes from CCAvenue's domain)
+Route::post('/checkout/ccavenue/return', [CheckoutController::class, 'ccavenueReturn'])
+    ->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class)
+    ->name('checkout.ccavenue.return');
+
+Route::post('/checkout/{order}/dev-paid', [CheckoutController::class, 'devMarkPaid'])->name('checkout.dev_paid');
+Route::get('/order/{order}', [CheckoutController::class, 'orderShow'])->name('order.show');
 
 // Subscribers
 Route::get('/subscribe/officer', [SubscriptionController::class, 'officerForm'])->name('subscribe.officer');
