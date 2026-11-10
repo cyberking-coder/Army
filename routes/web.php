@@ -1,12 +1,15 @@
 <?php
 
 use App\Http\Controllers\Public\BookController;
+use App\Http\Controllers\Public\CartController;
+use App\Http\Controllers\Public\CheckoutController;
 use App\Http\Controllers\Public\ExamController;
 use App\Http\Controllers\Public\HomeController;
 use App\Http\Controllers\Public\PageController;
 use App\Http\Controllers\Public\PdfController;
 use App\Http\Controllers\Public\StudyMaterialController;
 use App\Http\Controllers\Public\SubscriptionController;
+use App\Http\Controllers\Public\WebhookController;
 use App\Models\Newsline;
 use App\Models\Review;
 use Illuminate\Support\Facades\Route;
@@ -25,6 +28,24 @@ Route::get('/exams', [ExamController::class, 'index'])->name('exams.index');
 Route::get('/exams/{exam:slug}/register', [ExamController::class, 'register'])->name('exams.register');
 Route::post('/exams/{exam:slug}/register', [ExamController::class, 'submit']);
 
+// Cart
+Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
+Route::post('/cart/add/{book:slug}', [CartController::class, 'add'])->name('cart.add');
+Route::patch('/cart/update/{book}', [CartController::class, 'update'])->name('cart.update');
+Route::delete('/cart/remove/{book}', [CartController::class, 'remove'])->name('cart.remove');
+
+// Checkout + Razorpay
+Route::get('/checkout', [CheckoutController::class, 'show'])->name('checkout.show');
+Route::post('/checkout', [CheckoutController::class, 'place'])->name('checkout.place');
+Route::post('/checkout/{order}/verify', [CheckoutController::class, 'verify'])->name('checkout.verify');
+Route::post('/checkout/{order}/dev-paid', [CheckoutController::class, 'devMarkPaid'])->name('checkout.dev_paid');
+Route::get('/order/{order}', [CheckoutController::class, 'show'])->name('order.show');
+
+// Razorpay webhook (no CSRF)
+Route::post('/webhooks/razorpay', [WebhookController::class, 'razorpay'])
+    ->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class);
+
+// Subscribers
 Route::get('/subscribe/officer', [SubscriptionController::class, 'officerForm'])->name('subscribe.officer');
 Route::post('/subscribe/officer', [SubscriptionController::class, 'officerStore']);
 Route::get('/subscribe/soldier', [SubscriptionController::class, 'soldierForm'])->name('subscribe.soldier');
