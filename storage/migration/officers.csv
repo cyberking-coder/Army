@@ -1,0 +1,5 @@
+full_name,mobile,email,status,verified_at
+SAMPLE OFFICER ONE,9000000001,officer1@example.com,subscribed,2020-03-17 15:23:24
+Sample Officer Two,9000000002,officer2@example.com,subscribed,2020-03-17 15:27:07
+Sample Officer Three,9000000003,officer3@example.com,subscribed,2020-03-17 15:53:33
+Sample Officer Four,9000000004,officer4@example.com,subscribed,2020-03-17 16:55:24

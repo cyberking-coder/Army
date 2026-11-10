@@ -1,0 +1,6 @@
+title,slug,parent_slug,menu_name,description,status,sort
+Join as Jawan / JCO,join-as-jawan,,Jawan / JCO,"<p>Eligibility: Age 18-42, Matriculation. Process: report to recruitment office...</p>",publish,10
+Join as an Officer,join-as-officer,,Join as Officer,"<p>Eligibility for Territorial Army Commission...</p>",publish,20
+For Civilians Candidates,join-as-officer-civilians,join-as-officer,For Civilians,"<p>Applications are invited from gainfully employed citizens...</p>",publish,10
+For Ex-Service Officer,join-as-officer-ex-service,join-as-officer,For Ex-Service,"<p>Applications are invited from gainfully employed Ex Armed Forces Commissioned Officers...</p>",publish,20
+Syllabus,syllabus,join-as-officer,Syllabus,"<p>Type of Exam: Computer Based Test (CBT). Duration: 2 hours...</p>",publish,30

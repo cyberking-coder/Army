@@ -1,0 +1,3 @@
+order_number,full_name,mobile,email,shipping_address,city,state,pincode,subtotal,discount,final_cost,status,payment_id,consignment_number,notes,created_at
+SAMPLE001,Sample Customer One,9200000001,customer1@example.com,"123 Sample Road Sample Area",Sample City,Sample State,500001,1499,0,1499,successful,,,,2020-11-30 12:00:00
+SAMPLE002,Sample Customer Two,9200000002,customer2@example.com,"456 Placeholder Street",Sample City,Sample State,800001,1499,0,1499,successful,,,,2020-11-30 13:00:00

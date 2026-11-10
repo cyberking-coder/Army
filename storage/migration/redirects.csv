@@ -1,0 +1,4 @@
+from_path,to_path,status_code
+/sy_vyavasthaapak/add_page,/admin/pages/create,301
+/sy_vyavasthaapak,/admin,301
+/old-exam-page,/exams,301

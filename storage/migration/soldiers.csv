@@ -1,0 +1,5 @@
+first_name,last_name,mobile,email,status,verified_at
+Sample,Soldier-One,9100000001,soldier1@example.com,subscribed,2021-06-03 15:26:43
+Sample,Soldier-Two,9100000002,soldier2@example.com,subscribed,2021-06-03 18:56:07
+Sample,Soldier-Three,9100000003,soldier3@example.com,subscribed,2021-06-03 19:51:51
+Sample,Soldier-Four,9100000004,soldier4@example.com,subscribed,2021-06-03 22:00:00

@@ -1,0 +1,13 @@
+# Keep the sample/template CSVs committed; ignore any real exports.
+# Add filenames below to the whitelist as you commit them.
+*
+!.gitignore
+!pages.csv
+!books.csv
+!pdfs.csv
+!exams.csv
+!officers.csv
+!soldiers.csv
+!orders.csv
+!registrations.csv
+!redirects.csv
