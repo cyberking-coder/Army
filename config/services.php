@@ -17,9 +17,7 @@ return [
         'base_url'    => env('CCAVENUE_BASE_URL', 'https://test.ccavenue.com'),
     ],
 
-    'msg91' => [
-        'auth_key'        => env('MSG91_AUTH_KEY'),
-        'sender_id'       => env('MSG91_SENDER_ID'),
-        'otp_template_id' => env('MSG91_OTP_TEMPLATE_ID'),
+    'fast2sms' => [
+        'api_key' => env('FAST2SMS_API_KEY'),
     ],
 ];

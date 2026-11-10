@@ -6,116 +6,116 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * MSG91 SMS gateway wrapper.
+ * Fast2SMS SMS gateway wrapper.
  *
- * Uses MSG91's Flow API (DLT-compliant, mandatory for Indian SMS).
- * Env vars:
- *   MSG91_AUTH_KEY        — your MSG91 account auth key
- *   MSG91_SENDER_ID       — 6-char DLT-approved sender ID (e.g. "TRARMY")
- *   MSG91_OTP_TEMPLATE_ID — DLT template id for your OTP message
+ * Uses Fast2SMS's "otp" route — no DLT registration or template approval
+ * needed. Fast2SMS handles sender ID / DLT compliance on their side; we
+ * just send the OTP number and the mobile.
  *
- * Template example (what you register on MSG91 DLT):
- *   "##OTP## is your Territorial Army verification code. Valid 15 min."
+ * Env var:
+ *   FAST2SMS_API_KEY  — your Fast2SMS API key (see https://www.fast2sms.com)
  *
- * When any of these is missing (local dev), SMS is written to the
- * Laravel log instead of being sent.
+ * When empty, SMS is written to the Laravel log instead of being sent.
  */
 class SmsService
 {
-    protected string $base = 'https://control.msg91.com/api/v5';
+    protected string $endpoint = 'https://www.fast2sms.com/dev/bulkV2';
 
-    public function authKey(): ?string    { return config('services.msg91.auth_key'); }
-    public function senderId(): ?string   { return config('services.msg91.sender_id'); }
-    public function templateId(): ?string { return config('services.msg91.otp_template_id'); }
+    public function apiKey(): ?string
+    {
+        return config('services.fast2sms.api_key');
+    }
 
     public function isConfigured(): bool
     {
-        return $this->authKey() && $this->senderId() && $this->templateId();
+        return (bool) $this->apiKey();
     }
 
     /**
-     * Send an OTP via MSG91. Returns true on success, false on failure.
-     * Mobile must be 10-digit Indian number or +91-prefixed.
+     * Send a 6-digit OTP to the given mobile. Returns true on success.
+     * Mobile accepts 10-digit Indian numbers with or without +91 prefix.
      */
     public function sendOtp(string $mobile, string $otp): bool
     {
-        $mobile = $this->normalise($mobile);
+        $number = $this->normalise($mobile);
 
         if (! $this->isConfigured()) {
-            Log::info('SMS (dev): OTP to '.$mobile.' => '.$otp);
+            Log::info('SMS (dev): OTP to '.$number.' => '.$otp);
             return true;
         }
 
         try {
-            $response = Http::withHeaders([
-                'authkey'      => $this->authKey(),
-                'Content-Type' => 'application/JSON',
-            ])->post($this->base.'/flow/', [
-                'template_id' => $this->templateId(),
-                'sender'      => $this->senderId(),
-                'short_url'   => '0',
-                'recipients'  => [
-                    [
-                        'mobiles' => $mobile,
-                        'OTP'     => $otp,
-                    ],
-                ],
-            ]);
+            $response = Http::asForm()
+                ->withHeaders(['authorization' => $this->apiKey()])
+                ->post($this->endpoint, [
+                    'variables_values' => $otp,
+                    'route'            => 'otp',
+                    'numbers'          => $number,
+                ]);
 
-            if (! $response->successful()) {
-                Log::warning('MSG91 send failed', ['body' => $response->body(), 'status' => $response->status()]);
+            $ok = $response->successful()
+                && ($response->json('return') === true || $response->json('status_code') === 200);
+
+            if (! $ok) {
+                Log::warning('Fast2SMS send failed', [
+                    'status' => $response->status(),
+                    'body'   => $response->body(),
+                ]);
                 return false;
             }
 
             return true;
         } catch (\Throwable $e) {
-            Log::error('MSG91 request errored', ['error' => $e->getMessage()]);
+            Log::error('Fast2SMS request errored', ['error' => $e->getMessage()]);
             return false;
         }
     }
 
     /**
-     * Send a generic transactional SMS (not OTP). Uses the same Flow API
-     * endpoint but with a different template id passed in.
+     * Send a plain transactional SMS using Fast2SMS's "q" (Quick SMS) route.
+     * Use this for order shipped notifications, admin alerts, etc.
      */
-    public function send(string $mobile, string $templateId, array $vars = []): bool
+    public function send(string $mobile, string $message): bool
     {
-        $mobile = $this->normalise($mobile);
+        $number = $this->normalise($mobile);
 
-        if (! $this->authKey() || ! $this->senderId()) {
-            Log::info('SMS (dev): to '.$mobile.' template '.$templateId.' vars '.json_encode($vars));
+        if (! $this->isConfigured()) {
+            Log::info('SMS (dev): to '.$number.' => '.$message);
             return true;
         }
 
         try {
-            $response = Http::withHeaders([
-                'authkey'      => $this->authKey(),
-                'Content-Type' => 'application/JSON',
-            ])->post($this->base.'/flow/', [
-                'template_id' => $templateId,
-                'sender'      => $this->senderId(),
-                'recipients'  => [array_merge(['mobiles' => $mobile], $vars)],
-            ]);
+            $response = Http::asForm()
+                ->withHeaders(['authorization' => $this->apiKey()])
+                ->post($this->endpoint, [
+                    'message' => $message,
+                    'route'   => 'q',
+                    'numbers' => $number,
+                ]);
 
-            return $response->successful();
+            return $response->successful()
+                && ($response->json('return') === true || $response->json('status_code') === 200);
         } catch (\Throwable $e) {
-            Log::error('MSG91 generic send errored', ['error' => $e->getMessage()]);
+            Log::error('Fast2SMS generic send errored', ['error' => $e->getMessage()]);
             return false;
         }
     }
 
+    /**
+     * Fast2SMS wants a 10-digit Indian mobile with NO country code prefix.
+     */
     protected function normalise(string $mobile): string
     {
         $digits = preg_replace('/\D+/', '', $mobile);
 
-        // Indian 10-digit number - prefix 91
-        if (strlen($digits) === 10) {
-            return '91'.$digits;
+        // Strip leading 91 if present
+        if (strlen($digits) >= 12 && str_starts_with($digits, '91')) {
+            $digits = substr($digits, 2);
         }
 
-        // Already includes 91
-        if (strlen($digits) >= 12 && str_starts_with($digits, '91')) {
-            return $digits;
+        // Strip leading 0 if present
+        if (strlen($digits) === 11 && str_starts_with($digits, '0')) {
+            $digits = substr($digits, 1);
         }
 
         return $digits;

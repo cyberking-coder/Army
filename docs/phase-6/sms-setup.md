@@ -1,39 +1,27 @@
-# SMS Setup — MSG91
+# SMS Setup — Fast2SMS
 
-Transactional SMS in India requires DLT (Distributed Ledger Technology) registration. This is enforced by TRAI since 2020. One-time setup; after that SMS just works.
+Fast2SMS is a low-cost Indian SMS provider that handles DLT compliance on their side, so we don't need the usual 1–2 day DLT registration wait. OTP route starts at **~₹0.10 per SMS**.
 
-## 1. Sign up for MSG91
+## 1. Sign up
 
-<https://msg91.com/signup>
+<https://www.fast2sms.com/registration>
 
-Add ₹100-500 as starting balance — enough for ~2,000-5,000 SMS.
+Add your mobile number — they'll verify with an OTP.
 
-**Cost:** roughly **₹0.15–₹0.25 per SMS** for transactional messages.
+**Starting balance:** ₹100 minimum top-up (that's ~1,000 OTPs).
 
-## 2. DLT registration (one-time)
+## 2. Get your API key
 
-a. In MSG91 dashboard → **DLT** → register your business entity with any of the Indian telecom registries (Jio, Airtel, Vi, BSNL — pick one; MSG91 guides you)
+1. Log in to Fast2SMS → **Dev API** (top menu)
+2. Click **Generate API Key**
+3. Copy the long alphanumeric string
 
-b. Register a **Sender ID** (6 characters, all caps, e.g. `TRARMY`)
+That's it. No sender ID registration, no DLT templates, no 48-hour approval wait.
 
-c. Register an **OTP template** on the same DLT portal. Template must match exactly what gets sent. Example:
-> `##OTP## is your Territorial Army verification code. Valid for 15 minutes. Do not share.`
-
-The `##OTP##` is the variable placeholder DLT expects. MSG91 will approve + give you a **template id** once registered.
-
-## 3. Get your credentials
-
-MSG91 dashboard → **API settings** → copy:
-- **Auth key** (the main secret)
-- **Sender ID** (what you registered, e.g. TRARMY)
-- **OTP Template ID** (the DLT-approved template)
-
-## 4. Put them in `.env`
+## 3. Put it in `.env`
 
 ```
-MSG91_AUTH_KEY=123456ABCDxxxxxxxxxxxxxxxx
-MSG91_SENDER_ID=TRARMY
-MSG91_OTP_TEMPLATE_ID=65xxxxxxxxxxxxxx
+FAST2SMS_API_KEY=YOUR_LONG_KEY_HERE
 ```
 
 Then:
@@ -43,37 +31,58 @@ Then:
 
 Done. The next subscription attempt sends a real SMS.
 
-## 5. Verify it works
+## 4. Verify it works
 
 1. Go to `/subscribe/officer` with a real mobile number
 2. Submit the form
-3. SMS arrives within seconds
+3. SMS arrives within 3–5 seconds, sent from Fast2SMS's shared sender ID
 4. OTP matches what the email shows
 
-## Dev mode (no MSG91 key)
+## Routes used
 
-If any of the three env vars is empty, SMS is **written to `storage/logs/laravel.log`** instead of sent. Open with `.\dev.ps1 logs`:
+Fast2SMS has three SMS "routes":
+
+| Route | Use for | DLT needed? | Cost |
+|---|---|---|---|
+| `otp` | OTPs (what we use for subscribers) | No, handled by Fast2SMS | ~₹0.10 |
+| `q` | Quick transactional (our `send()` method for order updates etc.) | No | ~₹0.15 |
+| `dlt` | DLT-compliant transactional with your own sender ID | Yes | ~₹0.14 |
+
+Our `SmsService::sendOtp()` uses the `otp` route; `send()` uses `q`.
+
+## Dev mode (no API key)
+
+If `FAST2SMS_API_KEY` is empty, SMS is **written to `storage/logs/laravel.log`** instead of sent:
 
 ```
-SMS (dev): OTP to 919988776655 => 452189
+SMS (dev): OTP to 9988776655 => 452189
 ```
 
-No cost, no account needed — perfect for local testing.
+No cost, no account needed. Perfect for local testing.
+
+## Cost estimates
+
+| Monthly OTPs | Cost (@ ₹0.10 each) |
+|---|---|
+| 500 | ₹50 |
+| 1,000 | ₹100 |
+| 5,000 | ₹500 |
+| 20,000 | ₹2,000 |
+
+Transactional SMS (order updates via `send()`) costs ~₹0.15 each.
 
 ## Troubleshooting
 
-- **MSG91 returns "Invalid template"** → DLT template still pending approval; wait 24h
-- **"Sender ID not registered"** → DLT sender ID not yet approved; MSG91 dashboard shows approval status
-- **SMS not received** → check MSG91 dashboard → **Reports** for delivery status. DND numbers block transactional SMS unless you also register as a "Service Explicit" sender.
-- **₹ cost higher than expected** → promotional SMS is cheaper (₹0.10) but can't send OTPs; transactional costs more but has 100% delivery to DND numbers.
+- **"Invalid authorization"** → API key wrong or not pasted fully. Regenerate on Fast2SMS dashboard and re-copy.
+- **"Invalid number"** → Fast2SMS requires a **10-digit Indian mobile without country code**. Our `SmsService::normalise()` strips `+91` and leading `0` automatically, but double-check what you're sending.
+- **SMS not received** → Check Fast2SMS dashboard → **Reports** → delivery status. DND numbers may block even transactional SMS; try a non-DND test mobile first.
+- **Low balance** → Add top-up on Fast2SMS dashboard. Minimum ₹100.
 
-## Alternatives if MSG91 doesn't work out
+## Switching provider later
 
-Same architecture, different provider — swap the `SmsService` endpoint:
+The `SmsService` interface (`sendOtp`, `send`) stays the same. To switch providers:
 
-- **Fast2SMS** — cheapest, no DLT needed for OTP route, less reliable to DND
-- **Twilio** — global, ~4× more expensive in India
-- **Gupshup** — enterprise, more features
-- **TextLocal** — simpler onboarding, slightly more expensive
+1. Replace the `$endpoint` URL and payload shape in `app/Services/SmsService.php`
+2. Update the env var name and `config/services.php`
 
-Changing provider is a 20-line edit to `app/Services/SmsService.php` — keep the same `sendOtp()` method signature and controllers don't change.
+Controllers never change — they just call `$this->sms->sendOtp($mobile, $otp)`.
