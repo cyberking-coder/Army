@@ -50,10 +50,11 @@ class SoldierSubscriberResource extends Resource
                     ->visible(fn (SoldierSubscriber $r) => $r->status === 'unverified')
                     ->requiresConfirmation()
                     ->action(function (SoldierSubscriber $r) {
-                        $r->update([
-                            'otp' => (string) random_int(100000, 999999),
-                            'otp_expires_at' => now()->addMinutes(15),
-                        ]);
+                        $otp = (string) random_int(100000, 999999);
+                        $r->update(['otp' => $otp, 'otp_expires_at' => now()->addMinutes(15)]);
+                        \Illuminate\Support\Facades\Mail::to($r->email)
+                            ->queue(new \App\Mail\OtpMail($otp, $r->first_name));
+                        app(\App\Services\SmsService::class)->sendOtp($r->mobile, $otp);
                     }),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),

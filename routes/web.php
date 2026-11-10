@@ -52,6 +52,8 @@ Route::get('/subscribe/soldier', [SubscriptionController::class, 'soldierForm'])
 Route::post('/subscribe/soldier', [SubscriptionController::class, 'soldierStore'])->middleware('throttle:public-forms');
 Route::get('/verify-otp/{type}/{id}', [SubscriptionController::class, 'verifyForm'])->name('subscribe.verify');
 Route::post('/verify-otp/{type}/{id}', [SubscriptionController::class, 'verify']);
+Route::post('/verify-otp/{type}/{id}/resend', [SubscriptionController::class, 'resend'])
+    ->middleware('throttle:public-forms')->name('subscribe.resend');
 Route::get('/unsubscribe/{token}', [SubscriptionController::class, 'unsubscribe'])->name('unsubscribe');
 
 Route::get('/reviews', function () {

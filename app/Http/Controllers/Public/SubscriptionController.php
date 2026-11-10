@@ -6,12 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Mail\OtpMail;
 use App\Models\OfficerSubscriber;
 use App\Models\SoldierSubscriber;
+use App\Services\SmsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 class SubscriptionController extends Controller
 {
+    public function __construct(protected SmsService $sms) {}
+
     public function officerForm()
     {
         return view('public.subscribe.officer');
@@ -44,10 +47,10 @@ class SubscriptionController extends Controller
             ]
         );
 
-        Mail::to($sub->email)->queue(new OtpMail($otp, $sub->full_name));
+        $this->sendOtp($sub->email, $sub->mobile, $sub->full_name, $otp);
 
         return redirect()->route('subscribe.verify', ['type' => 'officer', 'id' => $sub->id])
-            ->with('info', 'Verification code sent to '.$sub->email);
+            ->with('info', 'Verification code sent to '.$sub->email.' and '.$this->maskMobile($sub->mobile));
     }
 
     public function soldierStore(Request $request)
@@ -73,10 +76,10 @@ class SubscriptionController extends Controller
             ]
         );
 
-        Mail::to($sub->email)->queue(new OtpMail($otp, $sub->first_name));
+        $this->sendOtp($sub->email, $sub->mobile, $sub->first_name, $otp);
 
         return redirect()->route('subscribe.verify', ['type' => 'soldier', 'id' => $sub->id])
-            ->with('info', 'Verification code sent to '.$sub->email);
+            ->with('info', 'Verification code sent to '.$sub->email.' and '.$this->maskMobile($sub->mobile));
     }
 
     public function verifyForm(string $type, int $id)
@@ -105,6 +108,30 @@ class SubscriptionController extends Controller
         return redirect('/')->with('success', 'Verified! You are subscribed.');
     }
 
+    public function resend(Request $request, string $type, int $id)
+    {
+        abort_unless(in_array($type, ['officer', 'soldier']), 404);
+
+        $model = $type === 'officer' ? OfficerSubscriber::class : SoldierSubscriber::class;
+        $sub = $model::findOrFail($id);
+
+        // Rate-limit per subscriber: at most one resend every 60 seconds
+        if ($sub->otp_expires_at && $sub->otp_expires_at->diffInSeconds(now()->addMinutes(15)) < 60) {
+            return back()->withErrors(['otp' => 'Please wait a minute before requesting a new code.']);
+        }
+
+        $otp = (string) random_int(100000, 999999);
+        $sub->update([
+            'otp'            => $otp,
+            'otp_expires_at' => now()->addMinutes(15),
+        ]);
+
+        $name = $sub->full_name ?? $sub->first_name;
+        $this->sendOtp($sub->email, $sub->mobile, $name, $otp);
+
+        return back()->with('info', 'New code sent to '.$sub->email.' and '.$this->maskMobile($sub->mobile));
+    }
+
     public function unsubscribe(string $token)
     {
         $sub = OfficerSubscriber::where('unsubscribe_token', $token)->first()
@@ -119,6 +146,13 @@ class SubscriptionController extends Controller
         return view('public.subscribe.unsubscribed', ['email' => $sub->email]);
     }
 
+    /** Fire-and-forget: email via queue, SMS inline (MSG91 responds in ~200ms). */
+    protected function sendOtp(string $email, string $mobile, string $name, string $otp): void
+    {
+        Mail::to($email)->queue(new OtpMail($otp, $name));
+        $this->sms->sendOtp($mobile, $otp);
+    }
+
     protected function issueUnsubToken(): string
     {
         do {
@@ -128,5 +162,12 @@ class SubscriptionController extends Controller
             || SoldierSubscriber::where('unsubscribe_token', $token)->exists()
         );
         return $token;
+    }
+
+    protected function maskMobile(string $mobile): string
+    {
+        $digits = preg_replace('/\D+/', '', $mobile);
+        if (strlen($digits) < 4) return '***';
+        return str_repeat('*', strlen($digits) - 4) . substr($digits, -4);
     }
 }

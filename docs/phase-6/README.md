@@ -3,6 +3,8 @@
 **Duration:** Week 8
 **Status:** ✅ COMPLETE — all emails queued, rate limits in place
 
+> **SMS verification added** — OTP now goes to **both email and mobile**. One code, delivered twice. See [`sms-setup.md`](./sms-setup.md) for MSG91 onboarding.
+
 ## What's built
 
 ### Mailables (`app/Mail/`)
