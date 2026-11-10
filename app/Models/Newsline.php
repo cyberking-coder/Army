@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Newsline extends Model
 {
+    use HasFactory;
+
     protected $table = 'newsline';
     protected $fillable = ['headline', 'link_url', 'starts_at', 'ends_at', 'is_active', 'sort'];
     protected $casts = [

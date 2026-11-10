@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ResultRegistration extends Model
 {
+    use HasFactory;
+
     protected $fillable = ['exam_id', 'name', 'mobile', 'email', 'roll_no', 'zone', 'submitted_at'];
     protected $casts = ['submitted_at' => 'datetime'];
 

@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class OfficerSubscriber extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'full_name', 'mobile', 'email', 'status',
         'otp', 'otp_expires_at', 'verified_at', 'unsubscribed_at', 'ip_address',
