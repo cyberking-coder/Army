@@ -94,20 +94,22 @@ VPS, SSL, Cloudflare, admin training, source code handover.
 
 ---
 
-## Getting Started (for Developers)
+## Getting Started
 
-```bash
+- **Developers** → see [`GETTING_STARTED.md`](./GETTING_STARTED.md). One page, one script (`.\dev.ps1`).
+- **Clients / Admins** → see [`CLIENT_MANUAL.md`](./CLIENT_MANUAL.md). Written for non-technical users.
+
+Quick start for devs after cloning:
+```powershell
+cd army
 composer install
-cp .env.example .env
+copy .env.example .env
 php artisan key:generate
-mysql -u root -e "CREATE DATABASE territorial_army CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-# edit .env with DB creds + admin seed vars
+New-Item -ItemType File -Path "database\database.sqlite"
+# edit .env: DB_CONNECTION=sqlite, ADMIN_EMAIL, ADMIN_PASSWORD
 php artisan migrate --seed
-php artisan filament:install --panels
-php artisan serve
+.\dev.ps1 start
 ```
-
-Then open http://localhost:8000/admin.
 
 ## Repository Structure
 
