@@ -6,6 +6,7 @@ use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Navigation\NavigationItem;
 use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
@@ -43,6 +44,19 @@ class AdminPanelProvider extends PanelProvider
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
                 Widgets\AccountWidget::class,
+            ])
+            ->navigationItems([
+                NavigationItem::make('Change password')
+                    ->icon('heroicon-o-key')
+                    ->group('Settings')
+                    ->sort(2)
+                    ->url(fn () => filament()->getProfileUrl() ?? '/admin/profile'),
+                NavigationItem::make('Logout')
+                    ->icon('heroicon-o-arrow-right-on-rectangle')
+                    ->group('Settings')
+                    ->sort(99)
+                    ->url(fn () => filament()->getLogoutUrl() ?? '/admin/logout')
+                    ->openUrlInNewTab(false),
             ])
             ->middleware([
                 EncryptCookies::class,
