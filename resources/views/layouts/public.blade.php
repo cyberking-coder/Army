@@ -136,8 +136,8 @@
 @if(session('success'))
     <div class="bg-green-100 text-green-800 px-4 py-3 text-center text-sm">{{ session('success') }}</div>
 @endif
-@if(session('otp_sent'))
-    <div class="bg-amber-100 text-amber-900 px-4 py-3 text-center text-sm">{{ session('otp_sent') }}</div>
+@if(session('info'))
+    <div class="bg-blue-100 text-blue-900 px-4 py-3 text-center text-sm">{{ session('info') }}</div>
 @endif
 
 <main>

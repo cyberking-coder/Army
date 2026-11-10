@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Public;
 
 use App\Http\Controllers\Controller;
+use App\Mail\OtpMail;
 use App\Models\OfficerSubscriber;
 use App\Models\SoldierSubscriber;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 class SubscriptionController extends Controller
 {
@@ -27,21 +30,24 @@ class SubscriptionController extends Controller
             'email'     => 'required|email|max:150',
         ]);
 
+        $otp = (string) random_int(100000, 999999);
+
         $sub = OfficerSubscriber::updateOrCreate(
             ['email' => $data['email']],
             [
                 ...$data,
-                'status'         => 'unverified',
-                'otp'            => (string) random_int(100000, 999999),
-                'otp_expires_at' => now()->addMinutes(15),
-                'ip_address'     => $request->ip(),
+                'status'            => 'unverified',
+                'otp'               => $otp,
+                'otp_expires_at'    => now()->addMinutes(15),
+                'ip_address'        => $request->ip(),
+                'unsubscribe_token' => $this->issueUnsubToken(),
             ]
         );
 
-        // Phase 6 wires the actual OTP email. For now flash to the page.
-        session()->flash('otp_sent', "OTP (demo): {$sub->otp}");
+        Mail::to($sub->email)->queue(new OtpMail($otp, $sub->full_name));
 
-        return redirect()->route('subscribe.verify', ['type' => 'officer', 'id' => $sub->id]);
+        return redirect()->route('subscribe.verify', ['type' => 'officer', 'id' => $sub->id])
+            ->with('info', 'Verification code sent to '.$sub->email);
     }
 
     public function soldierStore(Request $request)
@@ -53,20 +59,24 @@ class SubscriptionController extends Controller
             'email'      => 'required|email|max:150',
         ]);
 
+        $otp = (string) random_int(100000, 999999);
+
         $sub = SoldierSubscriber::updateOrCreate(
             ['email' => $data['email']],
             [
                 ...$data,
-                'status'         => 'unverified',
-                'otp'            => (string) random_int(100000, 999999),
-                'otp_expires_at' => now()->addMinutes(15),
-                'ip_address'     => $request->ip(),
+                'status'            => 'unverified',
+                'otp'               => $otp,
+                'otp_expires_at'    => now()->addMinutes(15),
+                'ip_address'        => $request->ip(),
+                'unsubscribe_token' => $this->issueUnsubToken(),
             ]
         );
 
-        session()->flash('otp_sent', "OTP (demo): {$sub->otp}");
+        Mail::to($sub->email)->queue(new OtpMail($otp, $sub->first_name));
 
-        return redirect()->route('subscribe.verify', ['type' => 'soldier', 'id' => $sub->id]);
+        return redirect()->route('subscribe.verify', ['type' => 'soldier', 'id' => $sub->id])
+            ->with('info', 'Verification code sent to '.$sub->email);
     }
 
     public function verifyForm(string $type, int $id)
@@ -93,5 +103,30 @@ class SubscriptionController extends Controller
         ]);
 
         return redirect('/')->with('success', 'Verified! You are subscribed.');
+    }
+
+    public function unsubscribe(string $token)
+    {
+        $sub = OfficerSubscriber::where('unsubscribe_token', $token)->first()
+             ?? SoldierSubscriber::where('unsubscribe_token', $token)->first();
+
+        if (! $sub) {
+            return redirect('/')->withErrors(['token' => 'Invalid unsubscribe link.']);
+        }
+
+        $sub->update(['status' => 'unsubscribed', 'unsubscribed_at' => now()]);
+
+        return view('public.subscribe.unsubscribed', ['email' => $sub->email]);
+    }
+
+    protected function issueUnsubToken(): string
+    {
+        do {
+            $token = Str::random(48);
+        } while (
+            OfficerSubscriber::where('unsubscribe_token', $token)->exists()
+            || SoldierSubscriber::where('unsubscribe_token', $token)->exists()
+        );
+        return $token;
     }
 }

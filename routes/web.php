@@ -25,7 +25,7 @@ Route::get('/study-material', [StudyMaterialController::class, 'index'])->name('
 
 Route::get('/exams', [ExamController::class, 'index'])->name('exams.index');
 Route::get('/exams/{exam:slug}/register', [ExamController::class, 'register'])->name('exams.register');
-Route::post('/exams/{exam:slug}/register', [ExamController::class, 'submit']);
+Route::post('/exams/{exam:slug}/register', [ExamController::class, 'submit'])->middleware('throttle:public-forms');
 
 // Cart
 Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
@@ -47,11 +47,12 @@ Route::get('/order/{order}', [CheckoutController::class, 'orderShow'])->name('or
 
 // Subscribers
 Route::get('/subscribe/officer', [SubscriptionController::class, 'officerForm'])->name('subscribe.officer');
-Route::post('/subscribe/officer', [SubscriptionController::class, 'officerStore']);
+Route::post('/subscribe/officer', [SubscriptionController::class, 'officerStore'])->middleware('throttle:public-forms');
 Route::get('/subscribe/soldier', [SubscriptionController::class, 'soldierForm'])->name('subscribe.soldier');
-Route::post('/subscribe/soldier', [SubscriptionController::class, 'soldierStore']);
+Route::post('/subscribe/soldier', [SubscriptionController::class, 'soldierStore'])->middleware('throttle:public-forms');
 Route::get('/verify-otp/{type}/{id}', [SubscriptionController::class, 'verifyForm'])->name('subscribe.verify');
 Route::post('/verify-otp/{type}/{id}', [SubscriptionController::class, 'verify']);
+Route::get('/unsubscribe/{token}', [SubscriptionController::class, 'unsubscribe'])->name('unsubscribe');
 
 Route::get('/reviews', function () {
     return view('public.reviews', [

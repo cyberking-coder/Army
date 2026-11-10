@@ -17,5 +17,11 @@ class AppServiceProvider extends ServiceProvider
             ['layouts.public', 'public.*'],
             \App\View\Composers\MenuComposer::class
         );
+
+        \App\Models\Order::observe(\App\Observers\OrderObserver::class);
+
+        \Illuminate\Support\Facades\RateLimiter::for('public-forms', function ($request) {
+            return [\Illuminate\Cache\RateLimiting\Limit::perMinute(5)->by($request->ip())];
+        });
     }
 }

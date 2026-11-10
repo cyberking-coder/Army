@@ -9,6 +9,7 @@ class OfficerSubscriber extends Model
     protected $fillable = [
         'full_name', 'mobile', 'email', 'status',
         'otp', 'otp_expires_at', 'verified_at', 'unsubscribed_at', 'ip_address',
+        'unsubscribe_token',
     ];
 
     protected $casts = [

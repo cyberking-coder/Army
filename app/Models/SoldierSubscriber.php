@@ -9,6 +9,7 @@ class SoldierSubscriber extends Model
     protected $fillable = [
         'first_name', 'last_name', 'mobile', 'email', 'status',
         'otp', 'otp_expires_at', 'verified_at', 'unsubscribed_at', 'ip_address',
+        'unsubscribe_token',
     ];
 
     protected $casts = [
