@@ -20,7 +20,6 @@ class PdfController extends Controller
         abort_unless($pdf->is_active, 404);
         $pdf->increment('downloads_count');
 
-        return Storage::disk(config('filesystems.default') === 'r2' ? 'r2' : 'public')
-            ->download($pdf->file_path, $pdf->slug.'.pdf');
+        return Storage::download($pdf->file_path, $pdf->slug.'.pdf');
     }
 }

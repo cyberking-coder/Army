@@ -11,8 +11,11 @@ class CreatePdf extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        if (!empty($data['file_path']) && \Storage::disk('public')->exists($data['file_path'])) {
-            $data['file_size_kb'] = (int) (\Storage::disk('public')->size($data['file_path']) / 1024);
+        if (!empty($data['file_path'])) {
+            $disk = \Storage::disk();
+            if ($disk->exists($data['file_path'])) {
+                $data['file_size_kb'] = (int) ($disk->size($data['file_path']) / 1024);
+            }
         }
         return $data;
     }
