@@ -44,7 +44,20 @@ class SoldierSubscriberResource extends Resource
                 Tables\Columns\TextColumn::make('created_at')->label('Date entered')->dateTime('d M Y H:i')->sortable(),
             ])
             ->defaultSort('created_at', 'desc')
-            ->actions([Tables\Actions\EditAction::make(), Tables\Actions\DeleteAction::make()])
+            ->actions([
+                Tables\Actions\Action::make('resend_otp')
+                    ->icon('heroicon-o-envelope')->color('warning')
+                    ->visible(fn (SoldierSubscriber $r) => $r->status === 'unverified')
+                    ->requiresConfirmation()
+                    ->action(function (SoldierSubscriber $r) {
+                        $r->update([
+                            'otp' => (string) random_int(100000, 999999),
+                            'otp_expires_at' => now()->addMinutes(15),
+                        ]);
+                    }),
+                Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
+            ])
             ->bulkActions([Tables\Actions\DeleteBulkAction::make()]);
     }
 

@@ -1,0 +1,21 @@
+@extends('layouts.public')
+@section('title', 'Subscribe as Officer')
+
+@section('content')
+<div class="max-w-md mx-auto px-4 py-10">
+    <h1 class="font-display font-bold text-3xl mb-2">Subscribe as Officer</h1>
+    <p class="text-gray-600 mb-6">Get OTP-verified updates on officer entry exams, syllabus and study material.</p>
+
+    @include('public.partials.errors')
+
+    <form method="POST" action="{{ route('subscribe.officer') }}" class="space-y-4 bg-white border rounded-xl p-6">
+        @csrf
+        @include('public.partials.input', ['name'=>'full_name','label'=>'Full name'])
+        @include('public.partials.input', ['name'=>'mobile','label'=>'Mobile number','type'=>'tel'])
+        @include('public.partials.input', ['name'=>'email','label'=>'Email','type'=>'email'])
+        <button class="w-full bg-brand-700 hover:bg-brand-900 text-white font-semibold px-6 py-3 rounded-lg transition">
+            Send OTP
+        </button>
+    </form>
+</div>
+@endsection

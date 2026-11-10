@@ -2,12 +2,14 @@
 
 namespace App\Filament\Resources\OfficerSubscriberResource\Pages;
 
+use App\Exports\OfficerSubscribersExport;
 use App\Filament\Resources\OfficerSubscriberResource;
 use App\Models\OfficerSubscriber;
 use Filament\Actions;
 use Filament\Resources\Components\Tab;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Builder;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ListOfficerSubscribers extends ListRecords
 {
@@ -15,7 +17,18 @@ class ListOfficerSubscribers extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [Actions\CreateAction::make()];
+        return [
+            Actions\Action::make('download_subscribed')->label('Download subscribed')
+                ->icon('heroicon-o-arrow-down-tray')->color('success')
+                ->action(fn () => Excel::download(new OfficerSubscribersExport('subscribed'), 'officer-subscribed-'.now()->format('Ymd-His').'.xlsx')),
+            Actions\Action::make('download_unverified')->label('Download unverified')
+                ->icon('heroicon-o-arrow-down-tray')->color('warning')
+                ->action(fn () => Excel::download(new OfficerSubscribersExport('unverified'), 'officer-unverified-'.now()->format('Ymd-His').'.xlsx')),
+            Actions\Action::make('download_unsubscribed')->label('Download unsubscribed')
+                ->icon('heroicon-o-arrow-down-tray')->color('danger')
+                ->action(fn () => Excel::download(new OfficerSubscribersExport('unsubscribed'), 'officer-unsubscribed-'.now()->format('Ymd-His').'.xlsx')),
+            Actions\CreateAction::make(),
+        ];
     }
 
     public function getTabs(): array

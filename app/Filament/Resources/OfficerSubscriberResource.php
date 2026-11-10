@@ -42,7 +42,21 @@ class OfficerSubscriberResource extends Resource
                 Tables\Columns\TextColumn::make('created_at')->label('Date entered')->dateTime('d M Y H:i')->sortable(),
             ])
             ->defaultSort('created_at', 'desc')
-            ->actions([Tables\Actions\EditAction::make(), Tables\Actions\DeleteAction::make()])
+            ->actions([
+                Tables\Actions\Action::make('resend_otp')
+                    ->icon('heroicon-o-envelope')->color('warning')
+                    ->visible(fn (OfficerSubscriber $r) => $r->status === 'unverified')
+                    ->requiresConfirmation()
+                    ->action(function (OfficerSubscriber $r) {
+                        $r->update([
+                            'otp' => (string) random_int(100000, 999999),
+                            'otp_expires_at' => now()->addMinutes(15),
+                        ]);
+                        // Phase 6 will wire the actual email send
+                    }),
+                Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
+            ])
             ->bulkActions([Tables\Actions\DeleteBulkAction::make()]);
     }
 
